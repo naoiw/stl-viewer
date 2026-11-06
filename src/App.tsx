@@ -61,7 +61,7 @@ export default function App() {
     const requestId = ++requestRef.current;
     setError(null);
 
-    if (!/\\.stl$/i.test(name)) {
+    if (!/\.stl$/i.test(name)) {
       setIsLoading(false);
       setError('拡張子 .stl のファイルを選択してください。');
       return;

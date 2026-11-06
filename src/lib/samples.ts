@@ -12,12 +12,12 @@ export function parseSampleCatalog(data: unknown): SampleEntry[] {
 
   return data.samples.map((entry: unknown) => {
     if (!entry || typeof entry !== 'object' || !('file' in entry) ||
-        typeof entry.file !== 'string' || !/^[^/\\\\]+\\.stl$/i.test(entry.file)) {
+        typeof entry.file !== 'string' || !/^[^/\\]+\.stl$/i.test(entry.file)) {
       throw new Error('サンプル一覧に無効なファイル名があります。');
     }
     const label = 'label' in entry && typeof entry.label === 'string' && entry.label.trim()
       ? entry.label
-      : entry.file.replace(/\\.stl$/i, '');
+      : entry.file.replace(/\.stl$/i, '');
     return { file: entry.file, label };
   });
 }

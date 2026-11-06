@@ -7,16 +7,16 @@ await mkdir(samplesDirectory, { recursive: true });
 
 const entries = await readdir(samplesDirectory, { withFileTypes: true });
 const samples = entries
-  .filter((entry) => entry.isFile() && /\\.stl$/i.test(entry.name))
+  .filter((entry) => entry.isFile() && /\.stl$/i.test(entry.name))
   .map((entry) => ({
     file: entry.name,
-    label: entry.name.replace(/\\.stl$/i, ''),
+    label: entry.name.replace(/\.stl$/i, ''),
   }))
   .sort((a, b) => a.file.localeCompare(b.file, 'ja', { numeric: true, sensitivity: 'base' }));
 
 await writeFile(
   join(samplesDirectory, 'index.json'),
-  JSON.stringify({ samples }, null, 2) + '\\n',
+  JSON.stringify({ samples }, null, 2) + '\n',
   'utf8',
 );
-console.log(`Sample STL catalog: ${samples.length} file(s)`);
+console.log('Sample STL catalog: ' + samples.length + ' file(s)');
