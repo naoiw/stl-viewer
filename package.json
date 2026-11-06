@@ -9,7 +9,11 @@
     "preview": "vite preview",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "build:pages:main": "tsc --noEmit && vite build --base=/stl-viewer/",
-    "build:pages:develop": "tsc --noEmit && vite build --base=/stl-viewer/develop/"
+    "build:pages:develop": "tsc --noEmit && vite build --base=/stl-viewer/develop/",
+    "predev": "node scripts/generate-samples-index.mjs",
+    "prebuild": "node scripts/generate-samples-index.mjs",
+    "prebuild:pages:main": "node scripts/generate-samples-index.mjs",
+    "prebuild:pages:develop": "node scripts/generate-samples-index.mjs"
   },
   "dependencies": {
     "react": "19.2.0",

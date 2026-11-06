@@ -31,7 +31,7 @@ body { margin: 0; min-width: 320px; }
 button, input { font: inherit; }
 button { cursor: pointer; }
 button:disabled { opacity: .5; cursor: not-allowed; }
-button:focus-visible, a:focus-visible, input:focus-visible {
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 3px;
 }
@@ -210,6 +210,19 @@ h1, h2, p { margin: 0; }
 .side-section > .section-kicker { margin-bottom: 8px; }
 .side-section h2 { margin-bottom: 17px; }
 .upload-button { width: 100%; }
+.sample-select {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #102032;
+  color: var(--ink);
+  font-size: .85rem;
+  cursor: pointer;
+}
+.sample-select:disabled { opacity: .65; cursor: not-allowed; }
 .helper-text, .privacy-note, .unit-note {
   color: var(--muted);
   font-size: .76rem;

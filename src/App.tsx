@@ -1,6 +1,7 @@
-import { useCallback, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
 import StlCanvas, { type StlCanvasHandle } from './components/StlCanvas';
 import { MAX_STL_BYTES, formatModelLength, parseStl, type LoadedStl } from './lib/stl';
+import { parseSampleCatalog, type SampleEntry } from './lib/samples';
 
 function formatBytes(bytes: number) {
   return bytes >= 1024 * 1024
@@ -20,28 +21,65 @@ export default function App() {
   const [wireframe, setWireframe] = useState(false);
   const [showGrid, setShowGrid] = useState(true);
   const [showAxes, setShowAxes] = useState(false);
+  const [samples, setSamples] = useState<SampleEntry[] | null>(null);
+  const [sampleListError, setSampleListError] = useState<string | null>(null);
+  const [selectedSample, setSelectedSample] = useState('');
 
   const handleRenderError = useCallback((message: string) => setError(message), []);
 
-  const loadFile = async (file: File) => {
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const loadSamples = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.BASE_URL}samples/index.json`, {
+          signal: controller.signal,
+          cache: 'no-cache',
+        });
+        if (!response.ok) throw new Error('サンプル一覧の取得に失敗しました。');
+
+        const catalog: unknown = await response.json();
+        const entries = parseSampleCatalog(catalog);
+        if (!controller.signal.aborted) setSamples(entries);
+      } catch {
+        if (!controller.signal.aborted) {
+          setSamples([]);
+          setSampleListError('サンプル一覧を読み込めませんでした。');
+        }
+      }
+    };
+
+    void loadSamples();
+    return () => controller.abort();
+  }, []);
+
+  const loadModel = async (
+    name: string,
+    readBuffer: () => Promise<ArrayBuffer>,
+    knownSize?: number,
+  ) => {
     const requestId = ++requestRef.current;
     setError(null);
 
-    if (!/\.stl$/i.test(file.name)) {
+    if (!/\\.stl$/i.test(name)) {
+      setIsLoading(false);
       setError('拡張子 .stl のファイルを選択してください。');
       return;
     }
-    if (file.size === 0 || file.size > MAX_STL_BYTES) {
+    if (knownSize !== undefined && (knownSize === 0 || knownSize > MAX_STL_BYTES)) {
+      setIsLoading(false);
       setError(`ファイルサイズは1バイト以上、${MAX_STL_BYTES / (1024 * 1024)} MB以下にしてください。`);
       return;
     }
 
     setIsLoading(true);
     try {
-      // No upload occurs; browser file APIs and STLLoader handle everything locally.
-      const arrayBuffer = await file.arrayBuffer();
+      const arrayBuffer = await readBuffer();
       if (requestId !== requestRef.current) return;
-      const parsed = parseStl(arrayBuffer, file.name);
+      if (arrayBuffer.byteLength === 0 || arrayBuffer.byteLength > MAX_STL_BYTES) {
+        throw new Error(`STLファイルは1バイト以上、${MAX_STL_BYTES / (1024 * 1024)} MB以下にしてください。`);
+      }
+      const parsed = parseStl(arrayBuffer, name);
       setModel(parsed);
     } catch (cause) {
       if (requestId !== requestRef.current) return;
@@ -49,6 +87,41 @@ export default function App() {
     } finally {
       if (requestId === requestRef.current) setIsLoading(false);
     }
+  };
+
+  const loadFile = (file: File) => {
+    setSelectedSample('');
+    void loadModel(file.name, () => file.arrayBuffer(), file.size);
+  };
+
+  const loadSample = (fileName: string) => {
+    setSelectedSample(fileName);
+    if (!fileName) {
+      ++requestRef.current;
+      setIsLoading(false);
+      return;
+    }
+
+    const selected = samples?.find((item) => item.file === fileName);
+    if (!selected) {
+      setError('指定されたサンプルが見つかりません。');
+      return;
+    }
+
+    void loadModel(selected.file, async () => {
+      // Same-origin GitHub Pages asset; no file uploads or external API calls.
+      const response = await fetch(
+        `${import.meta.env.BASE_URL}samples/${encodeURIComponent(selected.file)}`,
+      );
+      if (!response.ok) {
+        throw new Error(`サンプルの取得に失敗しました (HTTP ${response.status})。`);
+      }
+      const contentLength = response.headers.get('content-length');
+      if (contentLength && Number(contentLength) > MAX_STL_BYTES) {
+        throw new Error('サンプルファイルが80 MBを超えています。');
+      }
+      return response.arrayBuffer();
+    });
   };
 
   const onFileChange = (event: ChangeEvent<HTMLInputElement>) => {
@@ -146,6 +219,37 @@ export default function App() {
                 <p className="helper-text">ASCII / Binary STLに対応 · 最大80 MB</p>
                 <p className="privacy-note">モデルはブラウザ内で処理され、サーバーへアップロードされません。</p>
                 {error && <p className="error-text" role="alert">{error}</p>}
+              </div>
+
+              <div className="side-section">
+                <p className="section-kicker">SAMPLES</p>
+                <h2>サンプルデータ</h2>
+                <label className="visually-hidden" htmlFor="sample-select">サンプルSTLを選択</label>
+                <select
+                  id="sample-select"
+                  className="sample-select"
+                  value={selectedSample}
+                  onChange={(event) => loadSample(event.target.value)}
+                  disabled={!samples?.length}
+                >
+                  <option value="">
+                    {samples === null
+                      ? 'サンプル一覧を読み込み中…'
+                      : samples.length === 0 ? 'サンプルは未登録です' : 'サンプルを選択'}
+                  </option>
+                  {samples?.map((sample) => (
+                    <option key={sample.file} value={sample.file}>{sample.label}</option>
+                  ))}
+                </select>
+                {sampleListError ? (
+                  <p className="error-text" role="alert">{sampleListError}</p>
+                ) : (
+                  <p className="helper-text">
+                    {samples?.length
+                      ? `${samples.length}件のSTLサンプルを選択できます。`
+                      : 'public/samples/ にSTLを追加すると、ここから選べるようになります。'}
+                  </p>
+                )}
               </div>
 
               <div className="side-section">
