@@ -1,6 +1,6 @@
 # 開発
 
-Node.js 22以上を想定。
+Node.js 26系を想定。
 
 ```bash
 npm install
